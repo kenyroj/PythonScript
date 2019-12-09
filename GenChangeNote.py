@@ -45,8 +45,10 @@ def writeAsCsvFile(ReleaseNote, FileName):
         for EachC in ReleaseNote:
             Writer.writerow(EachC)
 
-def writeAsExcelFile(ReleaseNote, FileName):
+def writeAsExcelFile(ReleaseNote, QueryConditions, FileName):
     ExcelFile = xlsxwriter.Workbook(FileName)
+
+    # Write change data as a sheet
     ChangeSheet = ExcelFile.add_worksheet('Changes')
     Row = 0
     Colum = 0
@@ -60,18 +62,28 @@ def writeAsExcelFile(ReleaseNote, FileName):
         for EachI in EachC:
             ChangeSheet.write(Row, Colum, EachI)
             Colum += 1
+
+    # Write query data as a sheet
+    QuerySheet = ExcelFile.add_worksheet('Query')
+    Row = 0
+    Colum = 0
+    for EachQ in QueryConditions:
+        print "%s - %s" % (EachQ, QueryConditions[EachQ])
+        QuerySheet.write(Row, 0, EachQ)
+        QuerySheet.write(Row, 1, QueryConditions[EachQ])
+        Row += 1
         
     ExcelFile.close()
 
-def writeReleaseNote(ReleaseNote):
+def writeReleaseNote(ReleaseNote, QueryConditions, FileName):
     print ReleaseNote
-    CsvFileName="ReleaseNote.csv"
+    CsvFileName="%s.csv" % FileName
     writeAsCsvFile(ReleaseNote, CsvFileName)
-    ExcelFileName="ReleaseNote.xlsx"
-    writeAsExcelFile(ReleaseNote, ExcelFileName)
+    ExcelFileName="%s.xlsx" % FileName
+    writeAsExcelFile(ReleaseNote, QueryConditions, ExcelFileName)
 
-def handleQueryChange(QueryChangeStr, ReviewNOs):
-    RequestStr="http://%s@%s/a/changes/?q=%s" % (GerritAuth, GerritURL, QueryChangeStr)
+def handleQueryChange(QueryStr, ReviewNOs):
+    RequestStr="http://%s@%s/a/changes/?q=%s" % (GerritAuth, GerritURL, QueryStr)
     sys.stdout.write("Accessing %s ... " % RequestStr)
     Resp=requests.get(RequestStr)
     if (Resp.ok):
@@ -88,18 +100,26 @@ def handleQueryChange(QueryChangeStr, ReviewNOs):
         return 1
 
 def handleReviewNOs(ReviewNOs):
-    ReleaseNote=[] # A container for many Changes
+    ReleaseNote = [] # A container for many Changes
     for EachN in ReviewNOs:
         Change = getCommitDetail(EachN)
         ReleaseNote.append(Change)
-    writeReleaseNote(ReleaseNote)
+    return ReleaseNote
+
+def parseQueryMessage(QueryMessage):
+    QueryConditions = {}
+    for EachS in QueryMessage.split("+"):
+        EachQ = EachS.split(":", 1)
+        QueryConditions[EachQ[0]] = EachQ[1]
+    return QueryConditions
 
 def main():
-    QueryChange = "branch:sc20-android-quectel-evb"
-    QueryChange += "+after:2019-11-12 0:0:0"
-    QueryChange += "+before:2019-11-20 0:0:0"
-    if len(sys.argv) != 2:
-        sys.stderr.write('Usage: %s "GerritQueryString" like:\n%s\n' % (sys.argv[0], QueryChange))
+    QueryStr = "branch:sc20-android-quectel-evb"
+    QueryStr += "+after:2019-11-12 0:0:0"
+    QueryStr += "+before:2019-11-20 0:0:0"
+    QueryStr += "+status:merged"
+    if len(sys.argv) < 2:
+        sys.stderr.write('Usage: %s "GerritQueryString" like:\n%s\n' % (sys.argv[0], QueryStr))
         return 1
         
     ReviewNOs=[] # A container for ChangeIDs
@@ -107,8 +127,15 @@ def main():
     if (ret != 0): return 1
     print ReviewNOs
     
-    handleReviewNOs(ReviewNOs)
-    
+    ReleaseNote = handleReviewNOs(ReviewNOs)
+    print ReleaseNote
+
+    QueryConditions = parseQueryMessage(QueryStr)
+    print QueryConditions
+
+    FileName = sys.argv[2] if len(sys.argv) == 3 else "ReleaseNote"
+    writeReleaseNote(ReleaseNote, QueryConditions, FileName)
+
     return 0
 
 if __name__ == '__main__':
