@@ -6,37 +6,61 @@ import datetime
 import csv
 import xlsxwriter
 
-Seperater=','
 GerritURL="MDT-APBC-RD5-FILE01.mic.com.tw:8888"
 GerritAuth="aken.hsu:AAaa7410"
+DefaultFileName="ReleaseNote"
+
 ItmBrch="Branch"
 ItmRvNo="ReviewNo"
 ItmProj="Project"
 ItmSubj="Subject"
-ItmSmtr="Submitter"
+ItmSmtr="Owner"
 ItmSmtD="SubmitDate"
 ChangeItems=[ItmBrch, ItmRvNo, ItmProj, ItmSubj, ItmSmtr, ItmSmtD]
+ItmBgFx="BugFix"
+ItmFthr="Feature"
+MessageItems=[ItmBgFx, ItmFthr]
 
-def getCommitDetail(RevNo):
-    RequestStr="http://%s@%s/a/changes/%s/detail" % (GerritAuth, GerritURL, RevNo)
+def parseCommitMessage(CommitMessage, Change):
+    print CommitMessage
+    Items = CommitMessage.split("\n")
+    print Items 
+
+def getCommitDetail(RevNo, Change):
+    RequestStr = "http://%s@%s/a/changes/%s/detail" % (GerritAuth, GerritURL, RevNo)
+    print RequestStr
     sys.stdout.write("Accessing %s ... " % RequestStr)
-    Resp=requests.get(RequestStr)
+    Resp = requests.get(RequestStr)
     if (Resp.ok):
         sys.stdout.write("Request OK.\n")
-        RespCont=Resp.content.split("\n",1)[1]; # Remove 1st line with the ")]}'" unnecessary chars and will make json not formatted
-        jData=json.loads(RespCont)
+        RespCont = Resp.content.split("\n",1)[1]; # Remove 1st line with the ")]}'" unnecessary chars and will make json not formatted
+        jData = json.loads(RespCont)
         # print RespCont
-        Change=[] # A container for many information about a Change
         Change.append(jData["branch"])
         Change.append(RevNo)
         Change.append(jData["project"])
         Change.append(jData["subject"])
-        Change.append(jData["submitter"]["email"])
+        Change.append(jData["owner"]["email"])
         Change.append(jData["submitted"].split(".")[0])
-        return Change
-
     else:
         sys.stdout.write("Request NG!\n")
+
+    # Find the lasest commit message
+    for i in range(1, 99):
+        RequestStr = "http://%s@%s/a/changes/%s/revisions/%s/commit" % (GerritAuth, GerritURL, RevNo, i)
+        sys.stdout.write("Accessing %s ... " % RequestStr)
+        Resp = requests.get(RequestStr)
+        if (Resp.ok):
+            sys.stdout.write("Request OK.\n")
+            RespCont = Resp.content.split("\n",1)[1]; # Remove 1st line with the ")]}'" unnecessary chars and will make json not formatted
+            # print RespCont
+        else:
+            sys.stdout.write("Request NG!\n")
+            break
+
+    jData = json.loads(RespCont)
+    CommitMessage = jData["message"]
+    parseCommitMessage(CommitMessage, Change)
 
 def writeAsCsvFile(ReleaseNote, FileName):
     with open(FileName, 'w') as fp:
@@ -102,7 +126,8 @@ def handleQueryChange(QueryStr, ReviewNOs):
 def handleReviewNOs(ReviewNOs):
     ReleaseNote = [] # A container for many Changes
     for EachN in ReviewNOs:
-        Change = getCommitDetail(EachN)
+        Change=[] # A container for many information about a Change
+        getCommitDetail(EachN, Change)
         ReleaseNote.append(Change)
     return ReleaseNote
 
@@ -133,7 +158,7 @@ def main():
     QueryConditions = parseQueryMessage(QueryStr)
     print QueryConditions
 
-    FileName = sys.argv[2] if len(sys.argv) == 3 else "ReleaseNote"
+    FileName = sys.argv[2] if len(sys.argv) == 3 else DefaultFileName
     writeReleaseNote(ReleaseNote, QueryConditions, FileName)
 
     return 0
