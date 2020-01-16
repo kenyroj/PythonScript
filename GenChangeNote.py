@@ -6,7 +6,7 @@ import datetime
 import csv
 import xlsxwriter
 
-GerritURL="MDT-APBC-RD5-FILE01.mic.com.tw:8888"
+GerritURL="MDT-GERRIT01.mic.com.tw:8888"
 GerritAuth="aken.hsu:AAaa7410"
 DefaultFileName="ReleaseNote"
 
@@ -22,13 +22,13 @@ ItmFthr="Feature"
 MessageItems=[ItmBgFx, ItmFthr]
 
 def parseCommitMessage(CommitMessage, Change):
-    print CommitMessage
+    print(CommitMessage)
     Items = CommitMessage.split("\n")
-    print Items 
+    print(Items)
 
 def getCommitDetail(RevNo, Change):
     RequestStr = "http://%s@%s/a/changes/%s/detail" % (GerritAuth, GerritURL, RevNo)
-    print RequestStr
+    print(RequestStr)
     sys.stdout.write("Accessing %s ... " % RequestStr)
     Resp = requests.get(RequestStr)
     if (Resp.ok):
@@ -92,7 +92,7 @@ def writeAsExcelFile(ReleaseNote, QueryConditions, FileName):
     Row = 0
     Colum = 0
     for EachQ in QueryConditions:
-        print "%s - %s" % (EachQ, QueryConditions[EachQ])
+        print("%s - %s" % (EachQ, QueryConditions[EachQ]))
         QuerySheet.write(Row, 0, EachQ)
         QuerySheet.write(Row, 1, QueryConditions[EachQ])
         Row += 1
@@ -100,7 +100,7 @@ def writeAsExcelFile(ReleaseNote, QueryConditions, FileName):
     ExcelFile.close()
 
 def writeReleaseNote(ReleaseNote, QueryConditions, FileName):
-    print ReleaseNote
+    print(ReleaseNote)
     CsvFileName="%s.csv" % FileName
     writeAsCsvFile(ReleaseNote, CsvFileName)
     ExcelFileName="%s.xlsx" % FileName
@@ -138,27 +138,37 @@ def parseQueryMessage(QueryMessage):
         QueryConditions[EachQ[0]] = EachQ[1]
     return QueryConditions
 
+DefaultBranch="sc20-android-quectel-evb"
+DefaultBegin="2019-11-12 0:0:0"
+DefaultFinish="2019-11-20 0:0:0"
 def main():
-    QueryStr = "branch:sc20-android-quectel-evb"
-    QueryStr += "+after:2019-11-12 0:0:0"
-    QueryStr += "+before:2019-11-20 0:0:0"
-    QueryStr += "+status:merged"
-    if len(sys.argv) < 2:
-        sys.stderr.write('Usage: %s "GerritQueryString" like:\n%s\n' % (sys.argv[0], QueryStr))
+    try: Branch = sys.argv[1]
+    except IndexError: Branch = DefaultBranch
+    try: Begin = sys.argv[2]
+    except IndexError: Begin = DefaultBegin
+    try: Finish = sys.argv[3]
+    except IndexError: Finish = DefaultFinish
+    try: FileName = sys.argv[4]
+    except IndexError: FileName = DefaultFileName    
+
+    QueryStr = "branch:%s+after:%s+before:%s+status:merged" %(Branch, Begin, Finish)
+    print(QueryStr)
+
+    if len(sys.argv) < 4:
+        sys.stderr.write('Usage: %s Branch "BegineTime" "FinishTime" like:\n%s %s "%s" "%s"\n' % (sys.argv[0], sys.argv[0], Branch, Begin, Finish))
         return 1
-        
+
     ReviewNOs=[] # A container for ChangeIDs
     ret = handleQueryChange(sys.argv[1], ReviewNOs)
     if (ret != 0): return 1
-    print ReviewNOs
+    print(ReviewNOs)
     
     ReleaseNote = handleReviewNOs(ReviewNOs)
-    print ReleaseNote
+    print(ReleaseNote)
 
     QueryConditions = parseQueryMessage(QueryStr)
-    print QueryConditions
+    print(QueryConditions)
 
-    FileName = sys.argv[2] if len(sys.argv) == 3 else DefaultFileName
     writeReleaseNote(ReleaseNote, QueryConditions, FileName)
 
     return 0
