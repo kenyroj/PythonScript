@@ -33,7 +33,7 @@ def getCommitDetail(RevNo, Change):
     Resp = requests.get(RequestStr)
     if (Resp.ok):
         sys.stdout.write("Request OK.\n")
-        RespCont = Resp.content.split("\n",1)[1]; # Remove 1st line with the ")]}'" unnecessary chars and will make json not formatted
+        RespCont = Resp.content.decode().split("\n",1)[1]; # Remove 1st line with the ")]}'" unnecessary chars and will make json not formatted
         jData = json.loads(RespCont)
         # print RespCont
         Change.append(jData["branch"])
@@ -52,7 +52,7 @@ def getCommitDetail(RevNo, Change):
         Resp = requests.get(RequestStr)
         if (Resp.ok):
             sys.stdout.write("Request OK.\n")
-            RespCont = Resp.content.split("\n",1)[1]; # Remove 1st line with the ")]}'" unnecessary chars and will make json not formatted
+            RespCont = Resp.content.decode().split("\n",1)[1]; # Remove 1st line with the ")]}'" unnecessary chars and will make json not formatted
             # print RespCont
         else:
             sys.stdout.write("Request NG!\n")
@@ -112,7 +112,7 @@ def handleQueryChange(QueryStr, ReviewNOs):
     Resp=requests.get(RequestStr)
     if (Resp.ok):
         sys.stdout.write("Request OK.\n")
-        RespCont=Resp.content.split("\n",1)[1]; # Remove 1st line with the ")]}'" unnecessary chars and will make json not formatted
+        RespCont=Resp.content.decode().split("\n",1)[1]; # Remove 1st line with the ")]}'" unnecessary chars and will make json not formatted
         jData=json.loads(RespCont)
         for EachR in jData:
             ReviewNOs.append(EachR["_number"])
